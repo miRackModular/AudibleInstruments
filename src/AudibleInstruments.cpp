@@ -10,6 +10,7 @@ void init(rack::Plugin *p) {
 	p->addModel(modelPlaits);
 	p->addModel(modelElements);
 	p->addModel(modelTides);
+	p->addModel(modelSheep);
 	p->addModel(modelTides2);
 	p->addModel(modelClouds);
 	p->addModel(modelWarps);
@@ -21,6 +22,7 @@ void init(rack::Plugin *p) {
 	p->addModel(modelBlinds);
 	p->addModel(modelVeils);
 	p->addModel(modelFrames);
+	p->addModel(modelPeaks);
 	p->addModel(modelMarbles);
 	p->addModel(modelStages);
 }

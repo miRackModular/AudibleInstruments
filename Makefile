@@ -1,7 +1,9 @@
+V1_COMPAT=1
 FLAGS += \
 	-DTEST \
 	-I./eurorack \
-	-Wno-unused-local-typedefs
+	-Wno-unused-local-typedefs \
+	-g
 
 SOURCES += $(wildcard src/*.cpp)
 
@@ -79,9 +81,6 @@ SOURCES += eurorack/stages/segment_generator.cc
 SOURCES += eurorack/stages/ramp_extractor.cc
 SOURCES += eurorack/stages/resources.cc
 
-SOURCES += eurorack/stmlib/utils/random.cc
-SOURCES += eurorack/stmlib/dsp/atan.cc
-SOURCES += eurorack/stmlib/dsp/units.cc
 SOURCES += eurorack/marbles/random/t_generator.cc
 SOURCES += eurorack/marbles/random/x_y_generator.cc
 SOURCES += eurorack/marbles/random/output_channel.cc

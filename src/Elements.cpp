@@ -247,6 +247,17 @@ struct ElementsModalItem : MenuItem {
 	}
 };
 
+struct InvertedStrengthItem : MenuItem {
+	Elements *elements;
+	void onAction(const event::Action &e) override {
+		elements->inverted_strength = !elements->inverted_strength;
+	}
+	void step() override {
+		rightText = (elements->inverted_strength) ? "✔" : "";
+		MenuItem::step();
+	}
+};
+
 
 struct ElementsWidget : ModuleWidget {
 	ElementsWidget(Elements *module) {

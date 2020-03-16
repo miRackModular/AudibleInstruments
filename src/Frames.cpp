@@ -279,12 +279,13 @@ struct Frames : Module {
 };
 
 
-struct CKSSRot : SVGSwitch {
-	CKSSRot() {
-		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_0.svg")));
-		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_1.svg")));
-	}
-};
+using CKSSRot = CKSSH;
+// struct CKSSRot : SVGSwitch {
+// 	CKSSRot() {
+// 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_0.svg")));
+// 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_1.svg")));
+// 	}
+// };
 
 
 struct FramesWidget : ModuleWidget {
