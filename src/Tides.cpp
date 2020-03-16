@@ -43,7 +43,7 @@ struct Tides : Module {
 		NUM_LIGHTS
 	};
 
-	bool sheep;
+	bool sheep = false;
 	tides::Generator generator;
 	int frame = 0;
 	uint8_t lastGate;
@@ -156,7 +156,6 @@ struct Tides : Module {
 	void onReset() override {
 		generator.set_range(tides::GENERATOR_RANGE_MEDIUM);
 		generator.set_mode(tides::GENERATOR_MODE_LOOPING);
-		sheep = false;
 	}
 
 	void onRandomize() override {
@@ -194,24 +193,12 @@ struct Tides : Module {
 
 
 struct TidesWidget : ModuleWidget {
-	SvgPanel *tidesPanel;
-	SvgPanel *sheepPanel;
+	bool currentPanelIsSheep;
 
 	TidesWidget(Tides *module) {
 		setModule(module);
-		box.size = Vec(15*14, 380);
-		{
-			tidesPanel = new SvgPanel();
-			tidesPanel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/Tides.svg")));
-			tidesPanel->box.size = box.size;
-			addChild(tidesPanel);
-		}
-		{
-			sheepPanel = new SvgPanel();
-			sheepPanel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/Sheep.svg")));
-			sheepPanel->box.size = box.size;
-			addChild(sheepPanel);
-		}
+		currentPanelIsSheep = module->sheep;
+		setPanel(SVG::load(asset::plugin(pluginInstance, currentPanelIsSheep ? "res/Sheep.svg" : "res/Tides.svg")));
 
 		addChild(createWidget<ScrewSilver>(Vec(15, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(180, 0)));
@@ -250,11 +237,16 @@ struct TidesWidget : ModuleWidget {
 	}
 
 	void step() override {
-		Tides *tides = dynamic_cast<Tides*>(module);
+		Tides *tides = static_cast<Tides*>(module);
 
-		if (tides) {
-			tidesPanel->visible = !tides->sheep;
-			sheepPanel->visible = tides->sheep;
+		if (tides->sheep != currentPanelIsSheep)
+		{
+			currentPanelIsSheep = tides->sheep;
+
+			if (currentPanelIsSheep)
+				dynamic_cast<SVGPanel*>(panel)->setBackground(SVG::load(asset::plugin(pluginInstance, "res/Sheep.svg")));
+			else
+				dynamic_cast<SVGPanel*>(panel)->setBackground(SVG::load(asset::plugin(pluginInstance, "res/Tides.svg")));
 		}
 
 		ModuleWidget::step();
@@ -266,7 +258,7 @@ struct TidesWidget : ModuleWidget {
 
 		struct SheepItem : MenuItem {
 			Tides *module;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				module->sheep ^= true;
 			}
 		};
@@ -278,5 +270,14 @@ struct TidesWidget : ModuleWidget {
 	}
 };
 
+struct Sheep : Tides
+{
+	Sheep() : Tides()
+	{
+		sheep = true;
+	}
+};
+
 
 Model *modelTides = createModel<Tides, TidesWidget>("Tides");
+Model *modelSheep = createModel<Sheep, TidesWidget>("Sheep");

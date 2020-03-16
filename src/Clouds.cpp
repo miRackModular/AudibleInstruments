@@ -271,7 +271,7 @@ struct FreezeLight : YellowLight {
 struct CloudsBlendItem : MenuItem {
 	Clouds *module;
 	int blendMode;
-	void onAction(const event::Action &e) override {
+	void onAction(event::Action &e) override {
 		module->blendMode = blendMode;
 	}
 	void step() override {
@@ -284,7 +284,7 @@ struct CloudsBlendItem : MenuItem {
 struct CloudsPlaybackItem : MenuItem {
 	Clouds *module;
 	clouds::PlaybackMode playback;
-	void onAction(const event::Action &e) override {
+	void onAction(event::Action &e) override {
 		module->playback = playback;
 	}
 	void step() override {
@@ -297,7 +297,7 @@ struct CloudsPlaybackItem : MenuItem {
 struct CloudsQualityItem : MenuItem {
 	Clouds *module;
 	int quality;
-	void onAction(const event::Action &e) override {
+	void onAction(event::Action &e) override {
 		module->quality = quality;
 	}
 	void step() override {

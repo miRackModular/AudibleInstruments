@@ -591,7 +591,7 @@ struct MarblesWidget : ModuleWidget {
 		struct ScaleItem : MenuItem {
 			Marbles *module;
 			int scale;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				module->x_scale = scale;
 			}
 		};
@@ -616,7 +616,7 @@ struct MarblesWidget : ModuleWidget {
 		struct XClockSourceInternal : MenuItem {
 			Marbles *module;
 			int source;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				module->x_clock_source_internal = source;
 			}
 		};
@@ -639,7 +639,7 @@ struct MarblesWidget : ModuleWidget {
 		struct YDividerIndexItem : MenuItem {
 			Marbles *module;
 			int index;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				module->y_divider_index = index;
 			}
 		};

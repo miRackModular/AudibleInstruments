@@ -146,7 +146,7 @@ struct BranchesWidget : ModuleWidget {
 		struct BranchesModeItem : MenuItem {
 			Branches *branches;
 			int channel;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				branches->modes[channel] ^= 1;
 			}
 			void step() override {

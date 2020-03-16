@@ -237,8 +237,10 @@ static const char *algo_values[] = {
 struct BraidsDisplay : TransparentWidget {
 	Braids *module;
 	std::shared_ptr<Font> font;
+	int oldShape = -1;
 
 	BraidsDisplay() {
+		canSquash = true;
 		font = APP->window->loadFont(asset::plugin(pluginInstance, "res/hdad-segment14-1.002/Segment14.ttf"));
 	}
 
@@ -267,6 +269,15 @@ struct BraidsDisplay : TransparentWidget {
 		nvgFillColor(args.vg, textColor);
 		nvgText(args.vg, textPos.x, textPos.y, algo_values[shape], NULL);
 	}
+
+	void step() override {
+		int shape = module->settings.shape;
+		if (shape != oldShape) {
+			oldShape = shape;
+			dirty = true;
+		}
+		// No real need to call Widget::step
+	}	
 };
 
 
@@ -274,7 +285,7 @@ struct BraidsSettingItem : MenuItem {
 	uint8_t *setting = NULL;
 	uint8_t offValue = 0;
 	uint8_t onValue = 1;
-	void onAction(const event::Action &e) override {
+	void onAction(event::Action &e) override {
 		// Toggle setting
 		*setting = (*setting == onValue) ? offValue : onValue;
 	}
@@ -286,7 +297,7 @@ struct BraidsSettingItem : MenuItem {
 
 struct BraidsLowCpuItem : MenuItem {
 	Braids *braids;
-	void onAction(const event::Action &e) override {
+	void onAction(event::Action &e) override {
 		braids->lowCpu = !braids->lowCpu;
 	}
 	void step() override {

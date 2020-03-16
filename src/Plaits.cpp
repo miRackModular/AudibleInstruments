@@ -287,14 +287,14 @@ struct PlaitsWidget : ModuleWidget {
 
 		struct PlaitsLowCpuItem : MenuItem {
 			Plaits *module;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				module->lowCpu ^= true;
 			}
 		};
 
 		struct PlaitsLPGItem : MenuItem {
 			Plaits *module;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				module->lpg ^= true;
 			}
 		};
@@ -302,7 +302,7 @@ struct PlaitsWidget : ModuleWidget {
 		struct PlaitsModelItem : MenuItem {
 			Plaits *module;
 			int model;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				module->patch.engine = model;
 			}
 		};

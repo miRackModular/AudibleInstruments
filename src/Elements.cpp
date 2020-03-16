@@ -238,7 +238,7 @@ struct Elements : Module {
 struct ElementsModalItem : MenuItem {
 	Elements *elements;
 	int model;
-	void onAction(const event::Action &e) override {
+	void onAction(event::Action &e) override {
 		elements->setModel(model);
 	}
 	void step() override {

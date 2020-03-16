@@ -279,12 +279,13 @@ struct Frames : Module {
 };
 
 
-struct CKSSRot : SVGSwitch {
-	CKSSRot() {
-		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_0.svg")));
-		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_1.svg")));
-	}
-};
+using CKSSRot = CKSSH;
+// struct CKSSRot : SVGSwitch {
+// 	CKSSRot() {
+// 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_0.svg")));
+// 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/CKSS_rot_1.svg")));
+// 	}
+// };
 
 
 struct FramesWidget : ModuleWidget {
@@ -343,7 +344,7 @@ struct FramesWidget : ModuleWidget {
 			Frames *frames;
 			uint8_t channel;
 			frames::EasingCurve curve;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				frames->keyframer.mutable_settings(channel)->easing_curve = curve;
 			}
 			void step() override {
@@ -356,7 +357,7 @@ struct FramesWidget : ModuleWidget {
 			Frames *frames;
 			uint8_t channel;
 			uint8_t response;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				frames->keyframer.mutable_settings(channel)->response = response;
 			}
 			void step() override {
@@ -392,7 +393,7 @@ struct FramesWidget : ModuleWidget {
 
 		struct FramesClearItem : MenuItem {
 			Frames *frames;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				frames->keyframer.Clear();
 			}
 		};
@@ -400,7 +401,7 @@ struct FramesWidget : ModuleWidget {
 		struct FramesModeItem : MenuItem {
 			Frames *frames;
 			bool poly_lfo_mode;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				frames->poly_lfo_mode = poly_lfo_mode;
 			}
 			void step() override {

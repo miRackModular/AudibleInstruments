@@ -296,7 +296,7 @@ struct RingsWidget : ModuleWidget {
 		struct RingsModelItem : MenuItem {
 			Rings *rings;
 			rings::ResonatorModel model;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				rings->resonatorModel = model;
 			}
 			void step() override {
@@ -307,7 +307,7 @@ struct RingsWidget : ModuleWidget {
 
 		struct RingsEasterEggItem : MenuItem {
 			Rings *rings;
-			void onAction(const event::Action &e) override {
+			void onAction(event::Action &e) override {
 				rings->easterEgg = !rings->easterEgg;
 			}
 			void step() override {

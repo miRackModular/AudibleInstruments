@@ -35,6 +35,7 @@
       "description": "Based on Mutable Instruments Elements",
       "tags": [
         "Physical modeling",
+        "Synth Voice",
         "Hardware"
       ]
     },
@@ -47,6 +48,16 @@
         "Oscillator",
         "Waveshaper",
         "Function generator",
+        "Hardware"
+      ]
+    },
+    {
+      "slug": "Sheep",
+      "name": "Wavetable Oscillator",
+      "description": "Based on Mutable Instruments Tides with Sheep firmware",
+      "tags": [
+        "LFO",
+        "Oscillator",
         "Hardware"
       ]
     },
@@ -128,7 +139,8 @@
       "tags": [
         "Random",
         "Dual",
-        "Hardware"
+        "Hardware",
+        "Switch"
       ]
     },
     {
@@ -138,6 +150,7 @@
       "tags": [
         "Mixer",
         "Attenuator",
+        "Ring Modulator",
         "Hardware"
       ]
     },
@@ -155,10 +168,8 @@
       "name": "Keyframer/Mixer",
       "description": "Based on Mutable Instruments Frames",
       "tags": [
-        "Oscillator",
         "Mixer",
         "Attenuator",
-        "LFO",
         "Hardware"
       ]
     },
@@ -178,6 +189,19 @@
       "description": "Based on Mutable Instruments Marbles",
       "tags": [
         "Random",
+        "Sequencer",
+        "Hardware"
+      ]
+    },
+    {
+      "slug": "Peaks",
+      "name": "Percussive Synthesizer",
+      "description": "Based on Mutable Instruments Peaks",
+      "tags": [
+        "Utility",
+        "Envelope",
+        "LFO",
+        "Drum",
         "Hardware"
       ]
     }
