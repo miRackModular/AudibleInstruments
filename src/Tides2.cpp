@@ -165,12 +165,15 @@ struct Tides2 : Module {
 		// Switches
 		if (rangeTrigger.process(params[RANGE_PARAM].getValue() > 0.f)) {
 			range = (range + 1) % 3;
+			poly_slope_generator.Init();
 		}
 		if (modeTrigger.process(params[MODE_PARAM].getValue() > 0.f)) {
 			output_mode = (tides2::OutputMode) ((output_mode + 1) % 4);
+			poly_slope_generator.Init();
 		}
 		if (rampTrigger.process(params[RAMP_PARAM].getValue() > 0.f)) {
 			ramp_mode = (tides2::RampMode) ((ramp_mode + 1) % 3);
+			poly_slope_generator.Init();
 		}
 
 		// Input gates
