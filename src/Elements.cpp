@@ -77,6 +77,7 @@ struct Elements : Module {
 
 	uint16_t reverb_buffer[32768] = {};
 	elements::Part *part;
+	bool inverted_strength = false;
 
 	Elements() {
 		config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
@@ -178,7 +179,11 @@ struct Elements : Module {
 			performance.note = 12.0*inputs[NOTE_INPUT].getVoltage() + roundf(params[COARSE_PARAM].getValue()) + params[FINE_PARAM].getValue() + 69.0;
 			performance.modulation = 3.3*dsp::quarticBipolar(params[FM_PARAM].getValue()) * 49.5 * inputs[FM_INPUT].getVoltage()/5.0;
 			performance.gate = params[PLAY_PARAM].getValue() >= 1.0 || inputs[GATE_INPUT].getVoltage() >= 1.0;
-			performance.strength = clamp(1.0 - inputs[STRENGTH_INPUT].getVoltage()/5.0f, 0.0f, 1.0f);
+
+			if (inverted_strength)
+				performance.strength = clamp(1.0 - inputs[STRENGTH_INPUT].getVoltage()/5.0f, 0.0f, 1.0f);
+			else
+				performance.strength = clamp(0.5 + inputs[STRENGTH_INPUT].getVoltage()/10.0f, 0.0f, 1.0f);
 
 			// Generate audio
 			part->Process(performance, blow, strike, main, aux, 16);
@@ -215,6 +220,7 @@ struct Elements : Module {
 	json_t *dataToJson() override {
 		json_t *rootJ = json_object();
 		json_object_set_new(rootJ, "model", json_integer(getModel()));
+		json_object_set_new(rootJ, "inverted_strength", json_boolean(inverted_strength));
 		return rootJ;
 	}
 
@@ -223,6 +229,12 @@ struct Elements : Module {
 		if (modelJ) {
 			setModel(json_integer_value(modelJ));
 		}
+
+		json_t *invertedStrengthJ = json_object_get(rootJ, "inverted_strength");
+		if (invertedStrengthJ)
+			inverted_strength = json_boolean_value(invertedStrengthJ);
+		else
+			inverted_strength = true;
 	}
 
 	int getModel() {
@@ -243,6 +255,17 @@ struct ElementsModalItem : MenuItem {
 	}
 	void step() override {
 		rightText = CHECKMARK(elements->getModel() == model);
+		MenuItem::step();
+	}
+};
+
+struct InvertedStrengthItem : MenuItem {
+	Elements *elements;
+	void onAction(EventAction &e) override {
+		elements->inverted_strength = !elements->inverted_strength;
+	}
+	void step() override {
+		rightText = (elements->inverted_strength) ? "✔" : "";
 		MenuItem::step();
 	}
 };
@@ -331,10 +354,14 @@ struct ElementsWidget : ModuleWidget {
 		assert(elements);
 
 		menu->addChild(construct<MenuLabel>());
+
 		menu->addChild(construct<MenuLabel>(&MenuLabel::text, "Alternative models"));
 		menu->addChild(construct<ElementsModalItem>(&MenuItem::text, "Original", &ElementsModalItem::elements, elements, &ElementsModalItem::model, 0));
 		menu->addChild(construct<ElementsModalItem>(&MenuItem::text, "Non-linear string", &ElementsModalItem::elements, elements, &ElementsModalItem::model, 1));
 		menu->addChild(construct<ElementsModalItem>(&MenuItem::text, "Chords", &ElementsModalItem::elements, elements, &ElementsModalItem::model, 2));
+
+		menu->addChild(construct<MenuLabel>());
+		menu->addChild(construct<InvertedStrengthItem>(&InvertedStrengthItem::text, "Inverted Strength Input", &InvertedStrengthItem::elements, elements));
 	}
 };
 
