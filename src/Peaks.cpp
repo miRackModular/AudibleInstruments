@@ -1,3 +1,4 @@
+#undef V1_COMPAT
 #include <string>
 #include <chrono>
 
@@ -625,7 +626,7 @@ void Peaks::refreshLeds() {
 
 struct PeaksWidget : ModuleWidget {
 	PeaksWidget(Peaks *module) : ModuleWidget(module) {
-		setPanel(SVG::load(asset::plugin(pluginInstance, "res/Peaks.svg")));
+		setPanel(SVG::load(assetPlugin(pluginInstance, "res/Peaks.svg")));
 
 		addChild(Widget::create<ScrewSilver>(Vec(15, 0)));
 		addChild(Widget::create<ScrewSilver>(Vec(15, 365)));

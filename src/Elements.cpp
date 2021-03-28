@@ -261,7 +261,7 @@ struct ElementsModalItem : MenuItem {
 
 struct InvertedStrengthItem : MenuItem {
 	Elements *elements;
-	void onAction(EventAction &e) override {
+	void onAction(event::Action &e) override {
 		elements->inverted_strength = !elements->inverted_strength;
 	}
 	void step() override {
