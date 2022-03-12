@@ -19,6 +19,8 @@ struct Plaits : Module {
 		TIMBRE_CV_PARAM,
 		FREQ_CV_PARAM,
 		MORPH_CV_PARAM,
+		LPG_COLOR_PARAM,
+		LPG_DECAY_PARAM,
 		NUM_PARAMS
 	};
 	enum InputIds {
@@ -51,7 +53,6 @@ struct Plaits : Module {
 	dsp::SampleRateConverter<2> outputSrc;
 	dsp::DoubleRingBuffer<dsp::Frame<2>, 256> outputBuffer;
 	bool lowCpu = false;
-	bool lpg = false;
 
 	dsp::SchmittTrigger model1Trigger;
 	dsp::SchmittTrigger model2Trigger;
@@ -76,8 +77,6 @@ struct Plaits : Module {
 
 	void onReset() override {
 		patch.engine = 0;
-		patch.lpg_colour = 0.5f;
-		patch.decay = 0.5f;
 	}
 
 	void onRandomize() override {
@@ -89,8 +88,6 @@ struct Plaits : Module {
 
 		json_object_set_new(rootJ, "lowCpu", json_boolean(lowCpu));
 		json_object_set_new(rootJ, "model", json_integer(patch.engine));
-		json_object_set_new(rootJ, "lpgColor", json_real(patch.lpg_colour));
-		json_object_set_new(rootJ, "decay", json_real(patch.decay));
 
 		return rootJ;
 	}
@@ -104,13 +101,14 @@ struct Plaits : Module {
 		if (modelJ)
 			patch.engine = json_integer_value(modelJ);
 
+		// For backwards compatibility with older patches
 		json_t *lpgColorJ = json_object_get(rootJ, "lpgColor");
 		if (lpgColorJ)
-			patch.lpg_colour = json_number_value(lpgColorJ);
+			params[LPG_COLOR_PARAM].setValue(json_number_value(lpgColorJ));
 
 		json_t *decayJ = json_object_get(rootJ, "decay");
 		if (decayJ)
-			patch.decay = json_number_value(decayJ);
+			params[LPG_DECAY_PARAM].setValue(json_number_value(decayJ));
 	}
 
 	void process(const ProcessArgs &args) override {
@@ -154,14 +152,10 @@ struct Plaits : Module {
 			// Update patch
 			patch.note = 60.f + pitch * 12.f;
 			patch.harmonics = params[HARMONICS_PARAM].getValue();
-			if (!lpg) {
-				patch.timbre = params[TIMBRE_PARAM].getValue();
-				patch.morph = params[MORPH_PARAM].getValue();
-			}
-			else {
-				patch.lpg_colour = params[TIMBRE_PARAM].getValue();
-				patch.decay = params[MORPH_PARAM].getValue();
-			}
+			patch.timbre = params[TIMBRE_PARAM].getValue();
+			patch.morph = params[MORPH_PARAM].getValue();
+			patch.lpg_colour = params[LPG_COLOR_PARAM].getValue();
+			patch.decay = params[LPG_DECAY_PARAM].getValue();
 			patch.frequency_modulation_amount = params[FREQ_CV_PARAM].getValue();
 			patch.timbre_modulation_amount = params[TIMBRE_CV_PARAM].getValue();
 			patch.morph_modulation_amount = params[MORPH_CV_PARAM].getValue();
@@ -241,6 +235,8 @@ static const std::string modelLabels[16] = {
 
 
 struct PlaitsWidget : ModuleWidget {
+	bool lpgMode = false;
+
 	PlaitsWidget(Plaits *module) {
 		setModule(module);
 		setPanel(APP->window->loadSvg(asset::plugin(pluginInstance, "res/Plaits.svg")));
@@ -259,6 +255,13 @@ struct PlaitsWidget : ModuleWidget {
 		addParam(createParam<Trimpot>(mm2px(Vec(7.88712, 77.60705)), module, Plaits::TIMBRE_CV_PARAM));
 		addParam(createParam<Trimpot>(mm2px(Vec(27.2245, 77.60705)), module, Plaits::FREQ_CV_PARAM));
 		addParam(createParam<Trimpot>(mm2px(Vec(46.56189, 77.60705)), module, Plaits::MORPH_CV_PARAM));
+
+		auto lpgColor = createParam<Rogan1PSBlue>(mm2px(Vec(4.04171, 49.6562)), module, Plaits::LPG_COLOR_PARAM);
+		addParam(lpgColor);
+		lpgColor->visible = false;
+		auto lpgDecay = createParam<Rogan1PSBlue>(mm2px(Vec(42.71716, 49.6562)), module, Plaits::LPG_DECAY_PARAM);
+		addParam(lpgDecay);
+		lpgDecay->visible = false;
 
 		addInput(createInput<PJ301MPort>(mm2px(Vec(3.31381, 92.48067)), module, Plaits::ENGINE_INPUT));
 		addInput(createInput<PJ301MPort>(mm2px(Vec(14.75983, 92.48067)), module, Plaits::TIMBRE_INPUT));
@@ -293,9 +296,20 @@ struct PlaitsWidget : ModuleWidget {
 		};
 
 		struct PlaitsLPGItem : MenuItem {
-			Plaits *module;
+			PlaitsWidget *mw;
 			void onAction(const event::Action &e) override {
-				module->lpg ^= true;
+				mw->lpgMode = !mw->lpgMode;
+				if (mw->lpgMode) {
+					mw->params[Plaits::TIMBRE_PARAM]->hide();
+					mw->params[Plaits::MORPH_PARAM]->hide();
+					mw->params[Plaits::LPG_COLOR_PARAM]->show();
+					mw->params[Plaits::LPG_DECAY_PARAM]->show();
+				} else {
+					mw->params[Plaits::TIMBRE_PARAM]->show();
+					mw->params[Plaits::MORPH_PARAM]->show();
+					mw->params[Plaits::LPG_COLOR_PARAM]->hide();
+					mw->params[Plaits::LPG_DECAY_PARAM]->hide();
+				}
 			}
 		};
 
@@ -311,8 +325,8 @@ struct PlaitsWidget : ModuleWidget {
 		PlaitsLowCpuItem *lowCpuItem = createMenuItem<PlaitsLowCpuItem>("Low CPU", CHECKMARK(module->lowCpu));
 		lowCpuItem->module = module;
 		menu->addChild(lowCpuItem);
-		PlaitsLPGItem *lpgItem = createMenuItem<PlaitsLPGItem>("Edit LPG response/decay", CHECKMARK(module->lpg));
-		lpgItem->module = module;
+		PlaitsLPGItem *lpgItem = createMenuItem<PlaitsLPGItem>("Edit LPG response/decay", CHECKMARK(lpgMode));
+		lpgItem->mw = this;
 		menu->addChild(lpgItem);
 
 		menu->addChild(new MenuEntry());
