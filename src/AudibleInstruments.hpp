@@ -13,6 +13,7 @@ extern Model *modelTides;
 extern Model *modelSheep;
 extern Model *modelTides2;
 extern Model *modelClouds;
+extern Model *modelBeads;
 extern Model *modelWarps;
 extern Model *modelRings;
 extern Model *modelLinks;

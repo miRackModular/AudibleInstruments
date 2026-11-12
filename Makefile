@@ -89,8 +89,30 @@ SOURCES += eurorack/marbles/random/quantizer.cc
 SOURCES += eurorack/marbles/ramp/ramp_extractor.cc
 SOURCES += eurorack/marbles/resources.cc
 
+SOURCES += eurorack2/beads/dsp/processor.cc
+SOURCES += eurorack2/beads/dsp/trigger_generator.cc
+SOURCES += eurorack2/beads/dsp/delay_clock.cc
+SOURCES += eurorack2/beads/dsp/delay_controller.cc
+SOURCES += eurorack2/beads/dsp/synth.cc
+SOURCES += eurorack2/beads/dsp/mu_law.cc
+SOURCES += eurorack2/beads/resources.cc
+
 
 DISTRIBUTABLES += $(wildcard LICENSE*) res
 
 RACK_DIR ?= ../..
 include $(RACK_DIR)/plugin.mk
+
+# Beads is built against eurorack2. Prepend that tree so its stmlib headers
+# win over the pinned eurorack/ include used by every other module.
+BEADS_OBJECTS = \
+	build/%/src/Beads.cpp.o \
+	build/%/eurorack2/beads/dsp/processor.cc.o \
+	build/%/eurorack2/beads/dsp/trigger_generator.cc.o \
+	build/%/eurorack2/beads/dsp/delay_clock.cc.o \
+	build/%/eurorack2/beads/dsp/delay_controller.cc.o \
+	build/%/eurorack2/beads/dsp/synth.cc.o \
+	build/%/eurorack2/beads/dsp/mu_law.cc.o \
+	build/%/eurorack2/beads/resources.cc.o
+
+$(BEADS_OBJECTS): FLAGS := -I./eurorack2 $(FLAGS)

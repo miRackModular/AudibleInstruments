@@ -1,3 +1,6 @@
 [submodule "eurorack"]
 	path = eurorack
-	url = https://github.com/AndrewBelt/eurorack.git
+	url = git@github.com:miRackModular/pichenettes-eurorack
+[submodule "eurorack2"]
+	path = eurorack2
+	url = git@github.com:miRackModular/pichenettes-eurorack

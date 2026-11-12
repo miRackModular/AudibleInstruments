@@ -84,6 +84,16 @@
       ]
     },
     {
+      "slug": "Beads",
+      "name": "Texture Synthesizer 2",
+      "description": "Based on Mutable Instruments Beads",
+      "tags": [
+        "Granular",
+        "Reverb",
+        "Hardware"
+      ]
+    },
+    {
       "slug": "Warps",
       "name": "Meta Modulator",
       "description": "Based on Mutable Instruments Warps",
