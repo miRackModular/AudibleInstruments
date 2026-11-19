@@ -5,9 +5,16 @@
 #include "stmlib/dsp/dsp.h"
 #include "stmlib/utils/gate_flags.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <mutex>
+#include <vector>
 
 
 static const int kBlockSize = 12;
@@ -17,6 +24,76 @@ static const float kSeedHoldSeconds = 1.0f;
 static const float kMediaHoldSeconds = 1.5f;
 static const float kAssignHoldSeconds = 1.0f;
 static const float kNoInputSeconds = 10.0f;
+static const size_t kFrozenBytes = beads::kDelayBufferSizeBits / 8;
+static const size_t kFrozenBank = 262144;
+static const size_t kFrozenChunk = 4096;
+static const char kFrozenMagic[4] = {'B', 'F', 'Z', '1'};
+
+
+struct FrozenBuffer {
+	int32_t writePtr = 0;
+	int32_t media = 3;
+	int32_t mono = 1;
+	std::vector<uint8_t> bytes;
+};
+
+
+static void transferFrozenBytes(beads::Processor *processor, uint8_t *bytes, size_t offset, size_t count, bool intoProcessor) {
+	uint8_t *raw = processor->delay_buffer_raw_bytes(offset);
+	if (intoProcessor)
+		std::memcpy(raw, bytes + offset, count);
+	else
+		std::memcpy(bytes + offset, raw, count);
+}
+
+
+static bool readFrozenFile(const std::filesystem::path &path, FrozenBuffer &buffer) {
+	std::ifstream in(path, std::ios::binary);
+	if (!in)
+		return false;
+	char magic[4];
+	int32_t writePtr = 0;
+	int32_t media = 0;
+	int32_t mono = 0;
+	int32_t size = 0;
+	in.read(magic, 4);
+	in.read(reinterpret_cast<char*>(&writePtr), sizeof(writePtr));
+	in.read(reinterpret_cast<char*>(&media), sizeof(media));
+	in.read(reinterpret_cast<char*>(&mono), sizeof(mono));
+	in.read(reinterpret_cast<char*>(&size), sizeof(size));
+	if (!in || std::memcmp(magic, kFrozenMagic, 4) != 0)
+		return false;
+	if (size != (int32_t) kFrozenBytes || media < 0 || media > 3 || (mono != 0 && mono != 1))
+		return false;
+	if (writePtr < 0 || writePtr > 1000000)
+		return false;
+	buffer.bytes.resize(kFrozenBytes);
+	in.read(reinterpret_cast<char*>(buffer.bytes.data()), kFrozenBytes);
+	if (!in)
+		return false;
+	buffer.writePtr = writePtr;
+	buffer.media = media;
+	buffer.mono = mono;
+	return true;
+}
+
+
+static bool writeFrozenFile(const std::filesystem::path &path, const FrozenBuffer &buffer) {
+	std::ofstream out(path, std::ios::binary);
+	if (!out)
+		return false;
+	int32_t writePtr = buffer.writePtr;
+	int32_t media = buffer.media;
+	int32_t mono = buffer.mono;
+	int32_t size = (int32_t) buffer.bytes.size();
+	out.write(kFrozenMagic, 4);
+	out.write(reinterpret_cast<const char*>(&writePtr), sizeof(writePtr));
+	out.write(reinterpret_cast<const char*>(&media), sizeof(media));
+	out.write(reinterpret_cast<const char*>(&mono), sizeof(mono));
+	out.write(reinterpret_cast<const char*>(&size), sizeof(size));
+	out.write(reinterpret_cast<const char*>(buffer.bytes.data()), buffer.bytes.size());
+	return (bool) out;
+}
 
 
 static float attenuverterLaw(float v) {
@@ -287,6 +364,14 @@ struct Beads : Module {
 	double seedPhase = 0.0;
 	float gainSeen = 1.0f;
 	float amountSeen[3] = {1.0f, 0.0f, 0.5f};
+
+	std::mutex frozenMutex;
+	std::shared_ptr<const FrozenBuffer> frozenSnapshot;
+	std::unique_ptr<FrozenBuffer> frozenBuild;
+	size_t frozenBuildOffset = 0;
+	double frozenStableSeconds = 0.0;
+	std::atomic<bool> snapshotReady{false};
+	std::atomic<bool> snapshotDiscard{false};
 
 	bool seedHostDelay[kSeedDelayCapacity] = {};
 	int seedHostPos = 0;
@@ -579,7 +664,102 @@ struct Beads : Module {
 		mix->output_gate = gateOutput;
 	}
 
+	std::filesystem::path frozenBufferPath(bool create) {
+		return std::filesystem::u8path(getPatchStorageDirectory(create)) / "frozen-buffer.bin";
+	}
+
+	void requestDiscardFrozenSnapshot() {
+		snapshotDiscard.store(true);
+		std::lock_guard<std::mutex> lock(frozenMutex);
+		frozenSnapshot.reset();
+		snapshotReady.store(false);
+	}
+
+	void installFrozenBuffer(const FrozenBuffer &buffer) {
+		processor->Configure(static_cast<beads::Processor::Media>(buffer.media), buffer.mono != 0);
+		size_t offset = 0;
+		while (offset < kFrozenBytes) {
+			size_t bankRemain = kFrozenBank - (offset % kFrozenBank);
+			size_t count = std::min(bankRemain, kFrozenBytes - offset);
+			transferFrozenBytes(processor, const_cast<uint8_t*>(buffer.bytes.data()), offset, count, true);
+			offset += count;
+		}
+		*processor->mutable_delay_write_ptr() = buffer.writePtr;
+		media = buffer.media;
+		freeze = true;
+		synthMode = false;
+		frozenBuild.reset();
+		frozenBuildOffset = 0;
+		frozenStableSeconds = 0.0;
+		{
+			std::lock_guard<std::mutex> lock(frozenMutex);
+			frozenSnapshot = std::make_shared<FrozenBuffer>(buffer);
+			snapshotReady.store(true);
+		}
+		snapshotDiscard.store(false);
+	}
+
+	void copyFrozenChunk() {
+		if (!frozenBuild || snapshotDiscard.load())
+			return;
+		size_t count = std::min(kFrozenChunk, kFrozenBytes - frozenBuildOffset);
+		size_t bankRemain = kFrozenBank - (frozenBuildOffset % kFrozenBank);
+		count = std::min(count, bankRemain);
+		transferFrozenBytes(processor, frozenBuild->bytes.data(), frozenBuildOffset, count, false);
+		frozenBuildOffset += count;
+		if (frozenBuildOffset < kFrozenBytes)
+			return;
+		if (snapshotDiscard.load()) {
+			frozenBuild.reset();
+			frozenBuildOffset = 0;
+			return;
+		}
+		std::lock_guard<std::mutex> lock(frozenMutex);
+		if (snapshotDiscard.load()) {
+			frozenBuild.reset();
+			frozenBuildOffset = 0;
+			return;
+		}
+		frozenSnapshot = std::shared_ptr<const FrozenBuffer>(std::move(frozenBuild));
+		snapshotReady.store(true);
+	}
+
+	void maintainFrozenSnapshot(float sampleTime) {
+		if (snapshotDiscard.exchange(false)) {
+			frozenBuild.reset();
+			frozenBuildOffset = 0;
+			frozenStableSeconds = 0.0;
+			std::lock_guard<std::mutex> lock(frozenMutex);
+			frozenSnapshot.reset();
+			snapshotReady.store(false);
+		}
+		if (synthMode || !frozenNow()) {
+			frozenBuild.reset();
+			frozenBuildOffset = 0;
+			frozenStableSeconds = 0.0;
+			if (snapshotReady.exchange(false)) {
+				std::lock_guard<std::mutex> lock(frozenMutex);
+				frozenSnapshot.reset();
+			}
+			return;
+		}
+		if (snapshotReady.load())
+			return;
+		frozenStableSeconds += sampleTime;
+		if (frozenStableSeconds < 0.02)
+			return;
+		if (frozenBuild)
+			return;
+		frozenBuild = std::unique_ptr<FrozenBuffer>(new FrozenBuffer());
+		frozenBuild->bytes.resize(kFrozenBytes);
+		frozenBuild->writePtr = *processor->mutable_delay_write_ptr();
+		frozenBuild->media = (int) processor->media();
+		frozenBuild->mono = processor->mono() ? 1 : 0;
+		frozenBuildOffset = 0;
+	}
+
 	void renderBlock(const ProcessArgs &args) {
+		copyFrozenChunk();
 		float engineRate = synthMode ? 48000.0f : processor->sample_rate();
 		prepareGain(engineRate);
 		if (restartGain) {
@@ -760,6 +940,8 @@ struct Beads : Module {
 		if (!frozenNow() && !anyInput && noInputSeconds >= kNoInputSeconds)
 			synthMode = true;
 
+		maintainFrozenSnapshot(args.sampleTime);
+
 		if (!outputBuffer.empty()) {
 			dsp::Frame<2> outputFrame = outputBuffer.shift();
 			// Inverting output stage. A gate stored as -0.8 becomes a positive gate.
@@ -774,7 +956,41 @@ struct Beads : Module {
 		updateLights(args);
 	}
 
+	void onAdd(const AddEvent &e) override {
+		FrozenBuffer buffer;
+		if (!readFrozenFile(frozenBufferPath(false), buffer))
+			return;
+		installFrozenBuffer(buffer);
+	}
+
+	void onSave(const SaveEvent &e) override {
+		std::shared_ptr<const FrozenBuffer> buffer;
+		{
+			std::lock_guard<std::mutex> lock(frozenMutex);
+			if (snapshotReady.load())
+				buffer = frozenSnapshot;
+		}
+		std::error_code ec;
+		std::filesystem::path path = frozenBufferPath(true);
+		if (!buffer) {
+			std::filesystem::remove(path, ec);
+			return;
+		}
+		std::filesystem::path temporary = path;
+		temporary += ".tmp";
+		if (!writeFrozenFile(temporary, *buffer)) {
+			std::filesystem::remove(temporary, ec);
+			return;
+		}
+		std::filesystem::rename(temporary, path, ec);
+		if (ec) {
+			std::filesystem::remove(path, ec);
+			std::filesystem::rename(temporary, path, ec);
+		}
+	}
+
 	void onReset() override {
+		requestDiscardFrozenSnapshot();
 		media = 3;
 		assign = 0;
 		gateOutput = false;
